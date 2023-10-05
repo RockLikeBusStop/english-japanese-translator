@@ -6,11 +6,17 @@ from torch.autograd import Variable
 
 
 class Coder(nn.Module):
+    """Parent class of Encoder and Decoder.
+    Contains shared methods of child classes.
+    """
+
     def __init__(self):
         super(Coder, self).__init__()
 
     def init_hidden(self, batch_size):
-        hidden = Variable(torch.zeros(self.directions * self.n_layers, batch_size, self.hidden_size))
+        hidden = Variable(
+            torch.zeros(self.directions * self.n_layers, batch_size, self.hidden_size)
+        )
         if c.use_cuda:
             return hidden.cuda()
         else:
@@ -18,7 +24,17 @@ class Coder(nn.Module):
 
 
 class Encoder(Coder):
-    def __init__(self, input_size, hidden_size, emb_weights=None, directions=1, n_layers=1, dropout_p=0.1):
+    """Encodes text of the input language into a distributed representation."""
+
+    def __init__(
+        self,
+        input_size,
+        hidden_size,
+        emb_weights=None,
+        directions=1,
+        n_layers=1,
+        dropout_p=0.1,
+    ):
         super(Encoder, self).__init__()
         self.n_layers = n_layers
         self.dropout_p = dropout_p
@@ -35,7 +51,8 @@ class Encoder(Coder):
             batch_first=True,
             bidirectional=bidirectional,
             num_layers=n_layers,
-            dropout=self.dropout_p)
+            dropout=self.dropout_p,
+        )
 
         if emb_weights is not None:
             self.embedding.weight = nn.Parameter(emb_weights)
@@ -49,14 +66,20 @@ class Encoder(Coder):
 
 
 class Decoder(Coder):
-    def __init__(self,
-                 hidden_size,
-                 output_size,
-                 emb_weights=None,
-                 directions=1,
-                 n_layers=1,
-                 dropout_p=0.1,
-                 max_length=30):
+    """Decodes a distributed representation into text in the target language.
+    Uses attention over the Encoder's outputs.
+    """
+
+    def __init__(
+        self,
+        hidden_size,
+        output_size,
+        emb_weights=None,
+        directions=1,
+        n_layers=1,
+        dropout_p=0.1,
+        max_length=30,
+    ):
         super(Decoder, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
@@ -67,7 +90,9 @@ class Decoder(Coder):
 
         self.embedding = nn.Embedding(self.output_size, self.hidden_size)
         self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
-        self.attn_combine = nn.Linear(self.hidden_size * (2 + directions - 1), self.hidden_size)
+        self.attn_combine = nn.Linear(
+            self.hidden_size * (2 + directions - 1), self.hidden_size
+        )
         self.dropout = nn.Dropout(self.dropout_p)
         bidirectional = self.directions == 2
         self.gru = nn.GRU(
@@ -76,17 +101,20 @@ class Decoder(Coder):
             batch_first=True,
             bidirectional=bidirectional,
             num_layers=n_layers,
-            dropout=self.dropout_p)
+            dropout=self.dropout_p,
+        )
         self.out = nn.Linear(self.hidden_size * directions, self.output_size)
 
         if emb_weights is not None:
             self.embedding.weight = nn.Parameter(emb_weights)
 
-    def forward(self, input, hidden, encoder_output, encoder_outputs):
+    def forward(self, input, hidden, encoder_outputs):
         embedded = self.embedding(input)
         embedded = self.dropout(embedded)
 
-        attn_weights = F.softmax(self.attn(torch.cat((embedded.squeeze(1), hidden.squeeze(0).sum(0)), 1)))
+        attn_weights = F.softmax(
+            self.attn(torch.cat((embedded.squeeze(1), hidden.squeeze(0).sum(0)), 1))
+        )
         attn_applied = torch.bmm(attn_weights.unsqueeze(1), encoder_outputs).squeeze(1)
 
         output = torch.cat((embedded.squeeze(1), attn_applied), 1)
