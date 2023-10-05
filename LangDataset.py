@@ -1,9 +1,11 @@
 import constants as c
+import torch
+from torch.autograd import Variable
 from torch.utils.data import Dataset
 
 
 class LangDataset(Dataset):
-    def __init__(self, pairs, input_lang, output_lang, max_length=c.MAX_LENGTH):
+    def __init__(self, pairs, input_lang, output_lang, max_length=30):
         self.pairs = pairs
         self.input_lang = input_lang
         self.output_lang = output_lang
@@ -33,7 +35,7 @@ class LangDataset(Dataset):
         return Variable(input_train), Variable(target_train)
 
 
-def sentence2indexes(lang, sentence, max_length=c.MAX_LENGTH):
+def sentence2indexes(lang, sentence, max_length=30):
     indexes = [lang.word2index[word] for word in sentence.split(" ")]
     result = torch.LongTensor(max_length)
     result[:] = c.EOS_token
