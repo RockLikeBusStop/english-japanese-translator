@@ -5,12 +5,12 @@ from torch.utils.data import Dataset
 
 
 class Lang:
-    """ " Holds vocabulary for each language and dictionaries to convert words to and from indexes"""
-
+    """" Holds vocabulary for each language and dictionaries to convert words to and from indexes
+    """
     def __init__(self, name):
         self.name = name
         self.word2index = {"SOS": 0, "EOS": 1}
-        self.word2count = {}
+        self.word2count = {"SOS": 0, "EOS": 0}
         self.index2word = {0: "SOS", 1: "EOS"}
         self.n_words = 2
 
@@ -27,12 +27,25 @@ class Lang:
             self.index2word[self.n_words] = word
             self.n_words += 1
 
+    def remove_word(self, word):
+        if word != "SOS" and word != "EOS":
+            self.n_words -= 1
+            idx = self.word2index[word]
+            last_word = self.index2word[self.n_words]
+
+            del self.word2index[word]
+            del self.word2count[word]
+            del self.index2word[self.n_words]
+
+            if last_word != word:
+                self.word2index[last_word] = idx
+                self.index2word[idx] = last_word
+
 
 class LangDataset(Dataset):
-    """Subclass of Pytorch Dataset.
-    Holds sentence data from both languages.
+    """ Subclass of Pytorch Dataset.
+        Holds sentence data from both languages.
     """
-
     def __init__(self, pairs, input_lang, output_lang, max_length=30):
         self.pairs = pairs
         self.input_lang = input_lang
@@ -56,9 +69,7 @@ class LangDataset(Dataset):
 
         for i, pair in enumerate(batch):
             input_train[i] = sentence2indexes(self.input_lang, pair[0], self.max_length)
-            target_train[i] = sentence2indexes(
-                self.output_lang, pair[1], self.max_length
-            )
+            target_train[i] = sentence2indexes(self.output_lang, pair[1], self.max_length)
 
         return Variable(input_train), Variable(target_train)
 
