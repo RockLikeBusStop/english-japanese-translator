@@ -11,18 +11,16 @@ from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
 
 
-def train(
-    input_var,
-    target_var,
-    encoder,
-    decoder,
-    encoder_opt,
-    decoder_opt,
-    criterion,
-    max_length=30,
-    teacher_forcing_ratio=0.5,
-    train=True,
-):
+def train(input_var,
+          target_var,
+          encoder,
+          decoder,
+          encoder_opt,
+          decoder_opt,
+          criterion,
+          max_length=30,
+          teacher_forcing_ratio=0.5,
+          train=True):
     encoder_opt.zero_grad()
     decoder_opt.zero_grad()
 
@@ -31,9 +29,7 @@ def train(
     target_length = target_var.size()[1]
 
     encoder_hidden = encoder.init_hidden(batch_size)
-    encoder_outputs = Variable(
-        torch.zeros(batch_size, max_length, encoder.hidden_size * encoder.directions)
-    )
+    encoder_outputs = Variable(torch.zeros(batch_size, max_length, encoder.hidden_size * encoder.directions))
     encoder_outputs = encoder_outputs.cuda() if c.use_cuda else encoder_outputs
 
     loss = 0
@@ -56,18 +52,14 @@ def train(
     # Teacher forcing: Feed the target as the next input
     if use_teacher_forcing:
         for i in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs
-            )
+            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
             loss += criterion(decoder_output, target_var[:, i])
             decoder_input = target_var[:, i]  # Teacher forcing
 
     # No teacher forcing: use its own predictions as the next input
     else:
         for i in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs
-            )
+            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
             loss += criterion(decoder_output, target_var[:, i])
 
             decoder_input = Variable(torch.LongTensor(batch_size, 1))
@@ -96,17 +88,7 @@ def train_iters(encoder, decoder, trainloader, validloader, epochs, lr=0.001):
         teacher_forcing_ratio /= 2
         total_loss = 0
         for i, (input_var, target_var) in enumerate(trainloader):
-            loss = train(
-                input_var,
-                target_var,
-                encoder,
-                decoder,
-                encoder_opt,
-                decoder_opt,
-                criterion,
-                teacher_forcing_ratio=teacher_forcing_ratio,
-                train=True,
-            )
+            loss = train(input_var, target_var, encoder, decoder, encoder_opt, decoder_opt, criterion, teacher_forcing_ratio=teacher_forcing_ratio, train=True)
             total_loss += loss
 
         avg_loss = total_loss / (i + 1)
@@ -115,17 +97,7 @@ def train_iters(encoder, decoder, trainloader, validloader, epochs, lr=0.001):
         # Evaluate networks
         total_loss = 0
         for i, (input_var, target_var) in enumerate(validloader):
-            loss = train(
-                input_var,
-                target_var,
-                encoder,
-                decoder,
-                encoder_opt,
-                decoder_opt,
-                criterion,
-                teacher_forcing_ratio=0,
-                train=False,
-            )
+            loss = train(input_var, target_var, encoder, decoder, encoder_opt, decoder_opt, criterion, teacher_forcing_ratio=0, train=False)
             total_loss += loss
 
         avg_loss = total_loss / (i + 1)
@@ -140,12 +112,8 @@ if __name__ == "__main__":
     train_pairs, valid_pairs = train_test_split(pairs, test_size=c.TEST_SIZE)
     trainset = LangDataset(train_pairs, input_lang, output_lang)
     validset = LangDataset(valid_pairs, input_lang, output_lang)
-    trainloader = DataLoader(
-        trainset, batch_size=c.BATCH_SIZE, shuffle=True, collate_fn=trainset.collate
-    )
-    validloader = DataLoader(
-        validset, batch_size=c.BATCH_SIZE, shuffle=True, collate_fn=validset.collate
-    )
+    trainloader = DataLoader(trainset, batch_size=c.BATCH_SIZE, shuffle=True, collate_fn=trainset.collate)
+    validloader = DataLoader(validset, batch_size=c.BATCH_SIZE, shuffle=True, collate_fn=validset.collate)
 
     encoder = Encoder(
         input_lang.n_words,
@@ -153,23 +121,21 @@ if __name__ == "__main__":
         emb_weights=None,
         directions=c.DIRECTIONS,
         n_layers=c.LAYERS,
-        dropout_p=c.DROPOUT,
-    )
+        dropout_p=c.DROPOUT)
     decoder = Decoder(
         c.HIDDEN_SIZE,
         output_lang.n_words,
         emb_weights=None,
         directions=c.DIRECTIONS,
         n_layers=c.LAYERS,
-        dropout_p=c.DROPOUT,
-    )
+        dropout_p=c.DROPOUT)
 
     if c.use_cuda:
         encoder = encoder.cuda()
         decoder = decoder.cuda()
 
     print("Training...")
-    train_iters(encoder, decoder, trainloader, validloader, 10, lr=c.LR)
+    train_iters(encoder, decoder, trainloader, validloader, 5, lr=c.LR)
 
     torch.save(encoder.state_dict(), c.ENCODER_PATH)
     torch.save(decoder.state_dict(), c.DECODER_PATH)
